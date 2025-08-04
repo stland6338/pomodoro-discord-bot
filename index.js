@@ -39,6 +39,9 @@ class PomodoroSession {
         this.updateInterval = null;
         
         this.messageId = null;
+        
+        // チャンネル固有ミュートのためのメンバー追跡
+        this.mutedMembers = new Set();
     }
     
     async start() {
@@ -53,6 +56,7 @@ class PomodoroSession {
         for (const [memberId, member] of members) {
             try {
                 await member.voice.setMute(true);
+                this.mutedMembers.add(memberId);
             } catch (error) {
                 console.error(`Failed to mute ${member.displayName}:`, error);
             }
@@ -60,13 +64,37 @@ class PomodoroSession {
     }
     
     async unmuteAllMembers() {
-        const members = this.voiceChannel.members;
-        for (const [memberId, member] of members) {
+        // ミュートされたメンバーのみミュート解除
+        for (const memberId of this.mutedMembers) {
             try {
-                await member.voice.setMute(false);
+                const member = this.voiceChannel.guild.members.cache.get(memberId);
+                if (member && member.voice.channel) {
+                    await member.voice.setMute(false);
+                }
             } catch (error) {
-                console.error(`Failed to unmute ${member.displayName}:`, error);
+                console.error(`Failed to unmute member ${memberId}:`, error);
             }
+        }
+        this.mutedMembers.clear();
+    }
+    
+    async muteMember(member) {
+        try {
+            await member.voice.setMute(true);
+            this.mutedMembers.add(member.id);
+        } catch (error) {
+            console.error(`Failed to mute ${member.displayName}:`, error);
+        }
+    }
+    
+    async unmuteMember(member) {
+        try {
+            if (this.mutedMembers.has(member.id)) {
+                await member.voice.setMute(false);
+                this.mutedMembers.delete(member.id);
+            }
+        } catch (error) {
+            console.error(`Failed to unmute ${member.displayName}:`, error);
         }
     }
     
@@ -262,12 +290,45 @@ class PomodoroSession {
         if (!this.isActive) return;
         
         try {
-            if (!this.isBreak) {
-                // 集中時間中は新規参加者をミュート
-                await member.voice.setMute(true);
+            if (!this.isBreak && member.voice.channel && member.voice.channel.id === this.channelId) {
+                // 集中時間中に対象チャンネルに参加した場合のみミュート
+                await this.muteMember(member);
             }
         } catch (error) {
             console.error(`Failed to handle new member ${member.displayName}:`, error);
+        }
+    }
+    
+    async handleMemberLeave(member) {
+        if (!this.isActive) return;
+        
+        try {
+            // 対象チャンネルから離れた場合、ミュートを解除
+            if (this.mutedMembers.has(member.id)) {
+                await this.unmuteMember(member);
+            }
+        } catch (error) {
+            console.error(`Failed to handle member leave ${member.displayName}:`, error);
+        }
+    }
+    
+    async handleMemberMove(member, newChannel) {
+        if (!this.isActive) return;
+        
+        try {
+            if (newChannel && newChannel.id === this.channelId) {
+                // 対象チャンネルに移動してきた場合、集中時間中ならミュート
+                if (!this.isBreak) {
+                    await this.muteMember(member);
+                }
+            } else {
+                // 対象チャンネルから離れた場合、ミュートを解除
+                if (this.mutedMembers.has(member.id)) {
+                    await this.unmuteMember(member);
+                }
+            }
+        } catch (error) {
+            console.error(`Failed to handle member move ${member.displayName}:`, error);
         }
     }
 }
@@ -454,11 +515,34 @@ client.on('interactionCreate', async (interaction) => {
 
 // ボイスチャンネルの状態変化を監視
 client.on('voiceStateUpdate', async (oldState, newState) => {
+    const member = newState.member;
+    
     // 新しくボイスチャンネルに参加した場合
     if (!oldState.channel && newState.channel) {
         const session = activeSessions.get(newState.channel.id);
         if (session) {
-            await session.handleNewMember(newState.member);
+            await session.handleNewMember(member);
+        }
+    }
+    // ボイスチャンネルから完全に離脱した場合
+    else if (oldState.channel && !newState.channel) {
+        const session = activeSessions.get(oldState.channel.id);
+        if (session) {
+            await session.handleMemberLeave(member);
+        }
+    }
+    // ボイスチャンネル間を移動した場合
+    else if (oldState.channel && newState.channel && oldState.channel.id !== newState.channel.id) {
+        // 離脱したチャンネルのセッションをチェック
+        const oldSession = activeSessions.get(oldState.channel.id);
+        if (oldSession) {
+            await oldSession.handleMemberLeave(member);
+        }
+        
+        // 参加したチャンネルのセッションをチェック
+        const newSession = activeSessions.get(newState.channel.id);
+        if (newSession) {
+            await newSession.handleMemberMove(member, newState.channel);
         }
     }
 });
