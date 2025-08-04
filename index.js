@@ -14,16 +14,16 @@ const client = new Client({
 
 // ポモドーロセッションクラス
 class PomodoroSession {
-    constructor(channelId, voiceChannel, textChannel, userId) {
+    constructor(channelId, voiceChannel, textChannel, userId, settings = {}) {
         this.channelId = channelId;
         this.voiceChannel = voiceChannel;
         this.textChannel = textChannel;
         this.userId = userId;
         
-        // デフォルト設定
-        this.focusTime = 25 * 60 * 1000; // 25分
-        this.breakTime = 5 * 60 * 1000;  // 5分
-        this.totalCycles = 4;
+        // カスタム設定またはデフォルト設定
+        this.focusTime = (settings.focusTime || 25) * 60 * 1000;
+        this.breakTime = (settings.breakTime || 5) * 60 * 1000;
+        this.totalCycles = settings.totalCycles || 4;
         
         // 現在の状態
         this.currentCycle = 1;
@@ -89,13 +89,15 @@ class PomodoroSession {
             
             this.remainingTime = this.focusTime;
             await this.muteAllMembers();
-            await this.textChannel.send(`🍅 サイクル ${this.currentCycle} の集中時間が開始されました！(25分)`);
+            const focusMinutes = Math.round(this.focusTime / 60000);
+            await this.textChannel.send(`🍅 サイクル ${this.currentCycle} の集中時間が開始されました！(${focusMinutes}分)`);
         } else {
             // 集中終了 → 休憩開始
             this.isBreak = true;
             this.remainingTime = this.breakTime;
             await this.unmuteAllMembers();
-            await this.textChannel.send(`☕ サイクル ${this.currentCycle} の休憩時間が開始されました！(5分)`);
+            const breakMinutes = Math.round(this.breakTime / 60000);
+            await this.textChannel.send(`☕ サイクル ${this.currentCycle} の休憩時間が開始されました！(${breakMinutes}分)`);
         }
         
         this.startTime = Date.now();
@@ -211,13 +213,17 @@ class PomodoroSession {
         const phaseEmoji = this.isBreak ? '☕' : '🍅';
         const color = this.isBreak ? 0x00ff00 : 0xff6b6b;
         
+        const focusMinutes = Math.round(this.focusTime / 60000);
+        const breakMinutes = Math.round(this.breakTime / 60000);
+        
         const embed = new EmbedBuilder()
             .setTitle(`${phaseEmoji} ポモドーロタイマー`)
             .setDescription(`**${phase}** - サイクル ${this.currentCycle}/${this.totalCycles}`)
             .addFields(
                 { name: '残り時間', value: this.formatTime(Math.max(0, remaining)), inline: true },
                 { name: '状態', value: this.isPaused ? '⏸️ 一時停止中' : '▶️ 実行中', inline: true },
-                { name: 'ボイスチャンネル', value: this.voiceChannel.name, inline: true }
+                { name: 'ボイスチャンネル', value: this.voiceChannel.name, inline: true },
+                { name: 'タイマー設定', value: `集中: ${focusMinutes}分 / 休憩: ${breakMinutes}分`, inline: true }
             )
             .setColor(color)
             .setTimestamp();
@@ -278,6 +284,30 @@ const commands = [
                 type: 7, // CHANNEL
                 channel_types: [2], // GUILD_VOICE
                 required: false
+            },
+            {
+                name: 'focus_time',
+                description: '集中時間（分）デフォルト: 25分',
+                type: 4, // INTEGER
+                required: false,
+                min_value: 1,
+                max_value: 120
+            },
+            {
+                name: 'break_time',
+                description: '休憩時間（分）デフォルト: 5分',
+                type: 4, // INTEGER
+                required: false,
+                min_value: 1,
+                max_value: 60
+            },
+            {
+                name: 'cycles',
+                description: 'サイクル数　デフォルト: 4回',
+                type: 4, // INTEGER
+                required: false,
+                min_value: 1,
+                max_value: 10
             }
         ]
     }
@@ -306,6 +336,9 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
         if (interaction.commandName === 'pomodoro') {
             const targetChannel = interaction.options.getChannel('channel');
+            const focusTime = interaction.options.getInteger('focus_time');
+            const breakTime = interaction.options.getInteger('break_time');
+            const cycles = interaction.options.getInteger('cycles');
             const member = interaction.member;
             
             // ユーザーがボイスチャンネルにいるかチェック
@@ -334,18 +367,33 @@ client.on('interactionCreate', async (interaction) => {
                 });
             }
             
+            // カスタム設定を準備
+            const settings = {};
+            if (focusTime) settings.focusTime = focusTime;
+            if (breakTime) settings.breakTime = breakTime;
+            if (cycles) settings.totalCycles = cycles;
+            
             // セッションを開始
             const session = new PomodoroSession(
                 voiceChannel.id,
                 voiceChannel,
                 interaction.channel,
-                interaction.user.id
+                interaction.user.id,
+                settings
             );
             
             activeSessions.set(voiceChannel.id, session);
             
+            // 設定情報を含む開始メッセージ
+            const settingsText = [];
+            if (focusTime) settingsText.push(`集中時間: ${focusTime}分`);
+            if (breakTime) settingsText.push(`休憩時間: ${breakTime}分`);
+            if (cycles) settingsText.push(`サイクル数: ${cycles}回`);
+            
+            const customSettings = settingsText.length > 0 ? `\n設定: ${settingsText.join(', ')}` : '';
+            
             await interaction.reply({
-                content: `🍅 ${voiceChannel.name} でポモドーロセッションを開始します！`,
+                content: `🍅 ${voiceChannel.name} でポモドーロセッションを開始します！${customSettings}`,
                 flags: 64
             });
             
