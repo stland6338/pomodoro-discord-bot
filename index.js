@@ -465,48 +465,51 @@ client.on('interactionCreate', async (interaction) => {
         const session = activeSessions.get(channelId);
         
         if (!session) {
-            return interaction.reply({
+            return interaction.followUp({
                 content: '❌ セッションが見つかりません。',
-                flags: 64
+                ephemeral: true
             });
         }
         
         switch (action) {
             case 'pause':
+                await interaction.deferUpdate(); // 応答を遅延させる
                 if (session.pause()) {
                     await session.updateStatusMessage();
-                    await interaction.reply({
+                    await interaction.followUp({
                         content: '⏸️ ポモドーロタイマーを一時停止しました。',
-                        flags: 64
+                        ephemeral: true
                     });
                 } else {
-                    await interaction.reply({
+                    await interaction.followUp({
                         content: '❌ タイマーは既に一時停止中です。',
-                        flags: 64
+                        ephemeral: true
                     });
                 }
                 break;
                 
             case 'resume':
+                await interaction.deferUpdate(); // 応答を遅延させる
                 if (session.resume()) {
                     await session.updateStatusMessage();
-                    await interaction.reply({
+                    await interaction.followUp({
                         content: '▶️ ポモドーロタイマーを再開しました。',
-                        flags: 64
+                        ephemeral: true
                     });
                 } else {
-                    await interaction.reply({
+                    await interaction.followUp({
                         content: '❌ タイマーは既に実行中です。',
-                        flags: 64
+                        ephemeral: true
                     });
                 }
                 break;
                 
             case 'stop':
+                await interaction.deferUpdate(); // 応答を遅延させる
                 await session.stop();
-                await interaction.reply({
+                await interaction.followUp({
                     content: '⏹️ ポモドーロセッションを停止しました。',
-                    flags: 64
+                    ephemeral: true
                 });
                 break;
         }
