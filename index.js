@@ -312,7 +312,7 @@ client.on('interactionCreate', async (interaction) => {
             if (!member.voice.channel && !targetChannel) {
                 return interaction.reply({
                     content: '❌ ボイスチャンネルに参加してからコマンドを実行するか、チャンネルを指定してください。',
-                    ephemeral: true
+                    flags: 64
                 });
             }
             
@@ -322,7 +322,7 @@ client.on('interactionCreate', async (interaction) => {
             if (activeSessions.has(voiceChannel.id)) {
                 return interaction.reply({
                     content: '❌ このボイスチャンネルでは既にポモドーロセッションが実行中です。',
-                    ephemeral: true
+                    flags: 64
                 });
             }
             
@@ -330,7 +330,7 @@ client.on('interactionCreate', async (interaction) => {
             if (voiceChannel.members.size === 0) {
                 return interaction.reply({
                     content: '❌ 指定されたボイスチャンネルにメンバーがいません。',
-                    ephemeral: true
+                    flags: 64
                 });
             }
             
@@ -346,7 +346,7 @@ client.on('interactionCreate', async (interaction) => {
             
             await interaction.reply({
                 content: `🍅 ${voiceChannel.name} でポモドーロセッションを開始します！`,
-                ephemeral: true
+                flags: 64
             });
             
             await session.start();
@@ -358,7 +358,7 @@ client.on('interactionCreate', async (interaction) => {
         if (!session) {
             return interaction.reply({
                 content: '❌ セッションが見つかりません。',
-                ephemeral: true
+                flags: 64
             });
         }
         
@@ -368,12 +368,12 @@ client.on('interactionCreate', async (interaction) => {
                     await session.updateStatusMessage();
                     await interaction.reply({
                         content: '⏸️ ポモドーロタイマーを一時停止しました。',
-                        ephemeral: true
+                        flags: 64
                     });
                 } else {
                     await interaction.reply({
                         content: '❌ タイマーは既に一時停止中です。',
-                        ephemeral: true
+                        flags: 64
                     });
                 }
                 break;
@@ -383,12 +383,12 @@ client.on('interactionCreate', async (interaction) => {
                     await session.updateStatusMessage();
                     await interaction.reply({
                         content: '▶️ ポモドーロタイマーを再開しました。',
-                        ephemeral: true
+                        flags: 64
                     });
                 } else {
                     await interaction.reply({
                         content: '❌ タイマーは既に実行中です。',
-                        ephemeral: true
+                        flags: 64
                     });
                 }
                 break;
@@ -397,7 +397,7 @@ client.on('interactionCreate', async (interaction) => {
                 await session.stop();
                 await interaction.reply({
                     content: '⏹️ ポモドーロセッションを停止しました。',
-                    ephemeral: true
+                    flags: 64
                 });
                 break;
         }
