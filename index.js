@@ -2,6 +2,9 @@ const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, ActionRowBuilder,
 const express = require('express');
 require('dotenv').config();
 
+// Note: Using flags: 64 instead of ephemeral: true (Discord.js v14+ requirement)
+// flags: 64 = MessageFlags.Ephemeral
+
 // Environment validation
 if (!process.env.DISCORD_TOKEN || !process.env.CLIENT_ID) {
     console.error('Missing required environment variables: DISCORD_TOKEN, CLIENT_ID');
@@ -505,7 +508,7 @@ client.on('interactionCreate', async (interaction) => {
             if (!session) {
                 return interaction.reply({
                     content: '❌ セッションが見つかりません。',
-                    ephemeral: true
+                    flags: 64
                 });
             }
             
@@ -515,12 +518,12 @@ client.on('interactionCreate', async (interaction) => {
                         await session.updateStatusMessage();
                         await interaction.reply({
                             content: '⏸️ ポモドーロタイマーを一時停止しました。',
-                            ephemeral: true
+                            flags: 64
                         });
                     } else {
                         await interaction.reply({
                             content: '❌ タイマーは既に一時停止中です。',
-                            ephemeral: true
+                            flags: 64
                         });
                     }
                     break;
@@ -530,12 +533,12 @@ client.on('interactionCreate', async (interaction) => {
                         await session.updateStatusMessage();
                         await interaction.reply({
                             content: '▶️ ポモドーロタイマーを再開しました。',
-                            ephemeral: true
+                            flags: 64
                         });
                     } else {
                         await interaction.reply({
                             content: '❌ タイマーは既に実行中です。',
-                            ephemeral: true
+                            flags: 64
                         });
                     }
                     break;
@@ -544,14 +547,14 @@ client.on('interactionCreate', async (interaction) => {
                     await session.stop();
                     await interaction.reply({
                         content: '⏹️ ポモドーロセッションを停止しました。',
-                        ephemeral: true
+                        flags: 64
                     });
                     break;
                     
                 default:
                     await interaction.reply({
                         content: '❌ 不明なアクションです。',
-                        ephemeral: true
+                        flags: 64
                     });
                     break;
             }
@@ -564,7 +567,7 @@ client.on('interactionCreate', async (interaction) => {
             try {
                 await interaction.reply({
                     content: '❌ エラーが発生しました。再試行してください。',
-                    ephemeral: true
+                    flags: 64
                 });
             } catch (replyError) {
                 console.error('Failed to send error reply:', replyError);

@@ -37,6 +37,7 @@ yarn-error.log*
 coverage
 
 # Documentation
+gcloud_command.md
 README.md
 CLAUDE.md
 *.md
