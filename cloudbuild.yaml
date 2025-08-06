@@ -7,7 +7,18 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/pomodoro-discord-bot']
     
-  # Deploy container image to Cloud Run
+  # Delete existing service to avoid configuration conflicts
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      gcloud run services delete pomodoro-discord-bot \
+        --region=asia-northeast1 \
+        --quiet || echo "Service does not exist or already deleted"
+    id: 'delete-existing-service'
+    
+  # Deploy container image to Cloud Run (fresh deployment)
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
     - 'run'
@@ -22,7 +33,6 @@ steps:
     - '--max-instances=5'
     - '--min-instances=1'
     - '--port=8080'
-    - '--set-env-vars=PORT=8080'
     - '--set-secrets=DISCORD_TOKEN=discord-token:latest,CLIENT_ID=client-id:latest'
 
 images:
