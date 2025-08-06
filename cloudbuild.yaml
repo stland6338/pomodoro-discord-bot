@@ -23,7 +23,7 @@ steps:
     - '--min-instances=1'
     - '--port=8080'
     - '--set-env-vars=PORT=8080'
-    - '--set-secrets=DISCORD_TOKEN=discord-secrets:DISCORD_TOKEN,CLIENT_ID=discord-secrets:CLIENT_ID'
+    - '--set-secrets=DISCORD_TOKEN=discord-token:latest,CLIENT_ID=client-id:latest'
 
 images:
   - 'gcr.io/$PROJECT_ID/pomodoro-discord-bot'

@@ -5,9 +5,28 @@ require('dotenv').config();
 // Note: Using flags: 64 instead of ephemeral: true (Discord.js v14+ requirement)
 // flags: 64 = MessageFlags.Ephemeral
 
-// Environment validation
+// Environment validation with detailed logging
+console.log('🔍 Environment Variable Debug:');
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- PORT:', process.env.PORT);
+console.log('- DISCORD_TOKEN exists:', !!process.env.DISCORD_TOKEN);
+console.log('- DISCORD_TOKEN length:', process.env.DISCORD_TOKEN ? process.env.DISCORD_TOKEN.length : 0);
+console.log('- DISCORD_TOKEN prefix:', process.env.DISCORD_TOKEN ? process.env.DISCORD_TOKEN.substring(0, 10) + '...' : 'null');
+console.log('- CLIENT_ID exists:', !!process.env.CLIENT_ID);
+console.log('- CLIENT_ID:', process.env.CLIENT_ID || 'null');
+
 if (!process.env.DISCORD_TOKEN || !process.env.CLIENT_ID) {
-    console.error('Missing required environment variables: DISCORD_TOKEN, CLIENT_ID');
+    console.error('❌ Missing required environment variables:');
+    console.error('- DISCORD_TOKEN:', process.env.DISCORD_TOKEN ? 'EXISTS' : 'MISSING');
+    console.error('- CLIENT_ID:', process.env.CLIENT_ID ? 'EXISTS' : 'MISSING');
+    console.error('Please check your Cloud Run environment configuration.');
+    process.exit(1);
+}
+
+// Validate token format
+if (process.env.DISCORD_TOKEN && !process.env.DISCORD_TOKEN.match(/^[A-Za-z0-9._-]+$/)) {
+    console.error('❌ DISCORD_TOKEN format appears invalid');
+    console.error('Expected format: alphanumeric characters, dots, underscores, and hyphens only');
     process.exit(1);
 }
 
@@ -652,4 +671,23 @@ function cleanup() {
     process.exit(0);
 }
 
-client.login(process.env.DISCORD_TOKEN);
+// Discord login with enhanced error handling
+console.log('🔗 Attempting to connect to Discord...');
+client.login(process.env.DISCORD_TOKEN).catch(error => {
+    console.error('❌ Discord login failed:', error);
+    console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        code: error.code
+    });
+    
+    if (error.code === 'TokenInvalid') {
+        console.error('🔍 Token troubleshooting tips:');
+        console.error('1. Verify token is correct in Discord Developer Portal');
+        console.error('2. Check token has not expired or been regenerated');
+        console.error('3. Ensure no extra spaces or characters in token');
+        console.error('4. Verify Cloud Run secrets are properly configured');
+    }
+    
+    process.exit(1);
+});

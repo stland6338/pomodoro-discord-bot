@@ -43,12 +43,29 @@ echo -e "${YELLOW}🔧 Enabling required APIs...${NC}"
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com containerregistry.googleapis.com secretmanager.googleapis.com
 
 # Create secrets
-echo -e "${YELLOW}🔐 Creating secrets...${NC}"
-echo -n "$DISCORD_TOKEN" | gcloud secrets create discord-token --data-file=- --replication-policy="automatic" 2>/dev/null || \
-echo -n "$DISCORD_TOKEN" | gcloud secrets versions add discord-token --data-file=-
+echo -e "${YELLOW}🔐 Creating/updating secrets...${NC}"
 
-echo -n "$CLIENT_ID" | gcloud secrets create client-id --data-file=- --replication-policy="automatic" 2>/dev/null || \
-echo -n "$CLIENT_ID" | gcloud secrets versions add client-id --data-file=-
+# Create or update discord-token secret
+if gcloud secrets describe discord-token >/dev/null 2>&1; then
+    echo "Updating existing discord-token secret..."
+    echo -n "$DISCORD_TOKEN" | gcloud secrets versions add discord-token --data-file=-
+else
+    echo "Creating new discord-token secret..."
+    echo -n "$DISCORD_TOKEN" | gcloud secrets create discord-token --data-file=- --replication-policy="automatic"
+fi
+
+# Create or update client-id secret
+if gcloud secrets describe client-id >/dev/null 2>&1; then
+    echo "Updating existing client-id secret..."
+    echo -n "$CLIENT_ID" | gcloud secrets versions add client-id --data-file=-
+else
+    echo "Creating new client-id secret..."
+    echo -n "$CLIENT_ID" | gcloud secrets create client-id --data-file=- --replication-policy="automatic"
+fi
+
+# Verify secrets were created
+echo -e "${YELLOW}🔍 Verifying secrets...${NC}"
+gcloud secrets list | grep -E "(discord-token|client-id)" || echo -e "${RED}❌ Warning: Secrets may not have been created properly${NC}"
 
 # Build and deploy using Cloud Build
 echo -e "${YELLOW}🏗️  Building and deploying with Cloud Build...${NC}"
