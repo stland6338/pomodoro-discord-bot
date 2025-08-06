@@ -394,8 +394,9 @@ client.once('ready', async () => {
 
 // スラッシュコマンドの処理
 client.on('interactionCreate', async (interaction) => {
-    if (interaction.isChatInputCommand()) {
-        if (interaction.commandName === 'pomodoro') {
+    try {
+        if (interaction.isChatInputCommand()) {
+            if (interaction.commandName === 'pomodoro') {
             const targetChannel = interaction.options.getChannel('channel');
             const focusTime = interaction.options.getInteger('focus_time');
             const breakTime = interaction.options.getInteger('break_time');
@@ -459,59 +460,78 @@ client.on('interactionCreate', async (interaction) => {
             });
             
             await session.start();
-        }
-    } else if (interaction.isButton()) {
-        const [, action, channelId] = interaction.customId.split('_');
-        const session = activeSessions.get(channelId);
+            }
+        } else if (interaction.isButton()) {
+            const [, action, channelId] = interaction.customId.split('_');
+            const session = activeSessions.get(channelId);
         
-        if (!session) {
-            return interaction.followUp({
-                content: '❌ セッションが見つかりません。',
-                ephemeral: true
-            });
-        }
-        
-        switch (action) {
-            case 'pause':
-                await interaction.deferUpdate(); // 応答を遅延させる
-                if (session.pause()) {
-                    await session.updateStatusMessage();
-                    await interaction.followUp({
-                        content: '⏸️ ポモドーロタイマーを一時停止しました。',
-                        ephemeral: true
-                    });
-                } else {
-                    await interaction.followUp({
-                        content: '❌ タイマーは既に一時停止中です。',
-                        ephemeral: true
-                    });
-                }
-                break;
-                
-            case 'resume':
-                await interaction.deferUpdate(); // 応答を遅延させる
-                if (session.resume()) {
-                    await session.updateStatusMessage();
-                    await interaction.followUp({
-                        content: '▶️ ポモドーロタイマーを再開しました。',
-                        ephemeral: true
-                    });
-                } else {
-                    await interaction.followUp({
-                        content: '❌ タイマーは既に実行中です。',
-                        ephemeral: true
-                    });
-                }
-                break;
-                
-            case 'stop':
-                await interaction.deferUpdate(); // 応答を遅延させる
-                await session.stop();
-                await interaction.followUp({
-                    content: '⏹️ ポモドーロセッションを停止しました。',
+            if (!session) {
+                return interaction.reply({
+                    content: '❌ セッションが見つかりません。',
                     ephemeral: true
                 });
-                break;
+            }
+            
+            switch (action) {
+                case 'pause':
+                    if (session.pause()) {
+                        await session.updateStatusMessage();
+                        await interaction.reply({
+                            content: '⏸️ ポモドーロタイマーを一時停止しました。',
+                            ephemeral: true
+                        });
+                    } else {
+                        await interaction.reply({
+                            content: '❌ タイマーは既に一時停止中です。',
+                            ephemeral: true
+                        });
+                    }
+                    break;
+                    
+                case 'resume':
+                    if (session.resume()) {
+                        await session.updateStatusMessage();
+                        await interaction.reply({
+                            content: '▶️ ポモドーロタイマーを再開しました。',
+                            ephemeral: true
+                        });
+                    } else {
+                        await interaction.reply({
+                            content: '❌ タイマーは既に実行中です。',
+                            ephemeral: true
+                        });
+                    }
+                    break;
+                    
+                case 'stop':
+                    await session.stop();
+                    await interaction.reply({
+                        content: '⏹️ ポモドーロセッションを停止しました。',
+                        ephemeral: true
+                    });
+                    break;
+                    
+                default:
+                    await interaction.reply({
+                        content: '❌ 不明なアクションです。',
+                        ephemeral: true
+                    });
+                    break;
+            }
+        }
+    } catch (error) {
+        console.error('Interaction error:', error);
+        
+        // 既に応答済みかチェックして適切にエラーメッセージを送信
+        if (!interaction.replied && !interaction.deferred) {
+            try {
+                await interaction.reply({
+                    content: '❌ エラーが発生しました。再試行してください。',
+                    ephemeral: true
+                });
+            } catch (replyError) {
+                console.error('Failed to send error reply:', replyError);
+            }
         }
     }
 });
