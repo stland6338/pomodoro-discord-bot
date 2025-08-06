@@ -93,6 +93,29 @@ npm start
 npm run dev
 ```
 
+## デプロイメント
+
+### Google Cloud Run にデプロイ
+
+このボットはGoogle Cloud Runでの実行に最適化されています。
+
+#### クイックデプロイ
+
+```bash
+# 自動デプロイスクリプト使用
+./deploy.sh YOUR_PROJECT_ID YOUR_DISCORD_TOKEN YOUR_CLIENT_ID
+
+# 手動デプロイ
+npm run deploy
+```
+
+詳細なデプロイ手順は [DEPLOYMENT.md](DEPLOYMENT.md) を参照してください。
+
+#### デプロイ後の確認
+
+- ヘルスチェック: `https://your-service-url/health`
+- ログ確認: Google Cloud Console > Cloud Run > サービス詳細
+
 ## 使用方法
 
 ### 基本的な使い方

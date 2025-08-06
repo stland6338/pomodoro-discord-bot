@@ -1,8 +1,45 @@
 const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const express = require('express');
 require('dotenv').config();
+
+// Environment validation
+if (!process.env.DISCORD_TOKEN || !process.env.CLIENT_ID) {
+    console.error('Missing required environment variables: DISCORD_TOKEN, CLIENT_ID');
+    process.exit(1);
+}
 
 // ポモドーロセッションを管理するMap
 const activeSessions = new Map();
+
+// Express app for health checks (Cloud Run requirement)
+const app = express();
+const PORT = process.env.PORT || 8080;
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    const health = {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        discord: client.isReady() ? 'connected' : 'disconnected',
+        activeSessions: activeSessions.size
+    };
+    res.status(200).json(health);
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+    res.status(200).json({
+        name: 'Discord Pomodoro Bot',
+        status: 'running',
+        version: '1.0.0'
+    });
+});
+
+// Start HTTP server
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`HTTP server listening on port ${PORT}`);
+});
 
 const client = new Client({
     intents: [
@@ -579,5 +616,37 @@ process.on('uncaughtException', error => {
     console.error('Uncaught exception:', error);
     process.exit(1);
 });
+
+// Graceful shutdown for Cloud Run
+process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down gracefully...');
+    cleanup();
+});
+
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully...');
+    cleanup();
+});
+
+function cleanup() {
+    console.log('Cleaning up active sessions...');
+    
+    // Stop all active sessions
+    for (const [channelId, session] of activeSessions) {
+        try {
+            session.stop();
+        } catch (error) {
+            console.error(`Error stopping session for channel ${channelId}:`, error);
+        }
+    }
+    
+    // Disconnect from Discord
+    if (client.isReady()) {
+        client.destroy();
+    }
+    
+    console.log('Cleanup completed');
+    process.exit(0);
+}
 
 client.login(process.env.DISCORD_TOKEN);

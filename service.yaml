@@ -1,0 +1,68 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: pomodoro-discord-bot
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      annotations:
+        # CPU allocation and timeout
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/execution-environment: gen2
+        # Memory allocation
+        run.googleapis.com/memory: "512Mi"
+        # CPU allocation
+        run.googleapis.com/cpu: "1000m"
+        # Max instances (to control costs)
+        autoscaling.knative.dev/maxScale: "5"
+        # Min instances (keep bot running)
+        autoscaling.knative.dev/minScale: "1"
+    spec:
+      # Timeout for requests (max 3600 for Cloud Run)
+      timeoutSeconds: 3600
+      containerConcurrency: 1000
+      containers:
+      - image: gcr.io/PROJECT_ID/pomodoro-discord-bot
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: DISCORD_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: DISCORD_TOKEN
+              name: discord-secrets
+        - name: CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              key: CLIENT_ID
+              name: discord-secrets
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+          requests:
+            cpu: 500m
+            memory: 256Mi
+        # Startup probe
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+        # Liveness probe
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
